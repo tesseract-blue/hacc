@@ -1,5 +1,5 @@
 import secrets
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 from string import ascii_letters, digits
 from base64 import urlsafe_b64encode as b64e, urlsafe_b64decode as b64d
 
@@ -45,17 +45,18 @@ class Fernetool:
 
 
 class Crypt:
-    def __init__(self, level: int = 1) -> None:
-        self.reset(level=level)
+    def __init__(self, level: int = 1, access: bool = False) -> None:
+        self.reset(level=level, access=access)
 
     # Initialization Reset Method
 
-    def reset(self, level: int = 1):
+    def reset(self, level: int = 1, access: bool = False):
+        self.__iterations: int = 2**level
+        self.__access = access
         self.__key: Optional[str] = None
         self.__secret: Optional[str] = None
         self.__locked: bool = False
         self.__loaded: bool = False
-        self.__iterations: int = 2**level
         self.__fernet = Fernetool(self.__iterations)
 
     # Private Methods
@@ -93,32 +94,43 @@ class Crypt:
 
     # Public Methods
 
-    def store(self, secret: str) -> None:
+    def store(self, secret: str) -> bool:
         self.__assert(loaded=False, locked=False)
         self.__secret = secret
         self.__set(loaded=True, locked=False)
+        return True
 
-    def lock(self, key: str) -> None:
+    def lock(self, key: str) -> bool:
         self.__assert(loaded=True, locked=False)
         self.__verify(key=key)
-        self.__secret = self.__fernet.encrypt(key=key, secret=self.__secret)
-        self.__set(loaded=True, locked=True)
+        self.__key = key
+        self.__secret = self.__fernet.encrypt(key=self.__key, secret=self.__secret)
+        self.__set(locked=True)
+        return True
 
-    def unlock(self, key: str) -> None:
+    def unlock(self, key: str) -> bool:
         self.__assert(loaded=True, locked=True)
-        if self._verify(key, self.__key):
-            self.__secret = self._decrypt(key, self.__secret)
+        if self.__compare(key, self.__key):
+            self.__secret = self.__fernet.decrypt(key, self.__secret)
+            self.__set(locked=False)
+            return True
+        else:
+            return False
 
     # Properties
 
     @property
-    def key(self) -> Tuple[bool, str]:
-        self.__assert(loaded=True, locked=False)
+    def key(self) -> str:
+        self.__assert(loaded=True)
+        if not self.__access:
+            self.__assert(locked=False)
         return self.__key
 
     @property
-    def message(self) -> Tuple[bool, str]:
-        self.__assert(loaded=True, locked=False)
+    def secret(self) -> str:
+        self.__assert(loaded=True)
+        if not self.__access:
+            self.__assert(locked=False)
         return self.__secret
 
     @property
@@ -126,5 +138,9 @@ class Crypt:
         return self.__iterations
 
     @property
-    def state(self) -> bool:
-        return dict(loaded=self.__loaded, locked=self.__locked)
+    def loaded(self) -> bool:
+        return self.__loaded
+
+    @property
+    def locked(self) -> bool:
+        return self.__locked
