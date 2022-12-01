@@ -46,14 +46,14 @@ class Fernetool:
 
 class Crypt:
     def __init__(
-        self, key: str = None, secret: str = None, level: int = 16, access: bool = False
+        self, key: str = None, secret: str = None, level: int = 20, access: bool = False
     ) -> None:
         self.reset(key=key, secret=secret, level=level, access=access)
 
     # Initialization Reset Method
 
     def reset(
-        self, key: str = None, secret: str = None, level: int = 16, access: bool = False
+        self, key: str = None, secret: str = None, level: int = 20, access: bool = False
     ):
         self.__iterations: int = 2**level
         self.__access = access
@@ -124,12 +124,13 @@ class Crypt:
 
     def unlock(self, key: str) -> bool:
         self.__assert(loaded=True, locked=True)
-        if self.__compare(key, self.__key):
-            self.__secret = self.__fernet.decrypt(key, self.__secret)
-            self.__set(locked=False)
-            return True
-        else:
-            return False
+        if self.__locked:
+            if self.__compare(key, self.__key):
+                self.__secret = self.__fernet.decrypt(key, self.__secret)
+                self.__set(locked=False)
+                return True
+            else:
+                return False
 
     # Properties
 
