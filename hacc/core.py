@@ -8,6 +8,41 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 
+class Fernetool:
+    def __init__(self, iterations: int) -> None:
+        self.__iterations = iterations
+        self.__backend = default_backend()
+        self.__salt: bytes = secrets.token_bytes(16)
+
+    def _derive(self, key: str) -> bytes:
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=self.__salt,
+            iterations=self.__iterations,
+            backend=self.__backend,
+        )
+        return b64e(kdf.derive(key.encode()))
+
+    def encrypt(self, key: str, message: str) -> str:
+        key = self._derive(key)
+        return b64e(
+            b"%b%b%b"
+            % (
+                self.__salt,
+                self.__iterations.to_bytes(4, "big"),
+                b64d(Fernet(key).encrypt(message.encode())),
+            )
+        ).decode()
+
+    def decrypt(self, key: str, message: str) -> str:
+        message = b64d(message.encode())
+        _, iterations, message = message[:16], message[16:20], b64e(message[20:])
+        iterations = int.from_bytes(iterations, "big")
+        key = self._derive(key)
+        return Fernet(key).decrypt(message).decode()
+
+
 class Crypt:
     def __init__(self, level: int = 1) -> None:
         self.reset(level=level)
@@ -18,18 +53,12 @@ class Crypt:
         self.__key: Optional[str] = None
         self.__message: Optional[str] = None
 
-    def __init_backend(self) -> None:
-        self.__backend = default_backend()
-
     def __init_state(self) -> None:
         self.__locked: bool = False
         self.__loaded: bool = False
 
     def __init_level(self, level: int) -> None:
         self.__iterations: int = 2**level
-
-    def __init_salt(self) -> None:
-        self.__salt: bytes = secrets.token_bytes(16)
 
     def __assert(
         self, loaded: Optional[bool] = None, locked: Optional[bool] = None
@@ -58,34 +87,6 @@ class Crypt:
         if len(A) != len(B):
             return False
         return True
-
-    def _derive(self, key: str) -> bytes:
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=self.__salt,
-            iterations=self.__iterations,
-            backend=self.__backend,
-        )
-        return b64e(kdf.derive(key.encode()))
-
-    def _encrypt(self, key: str, message: str) -> str:
-        key = self._derive(key.encode(), self.__salt, self.__iterations)
-        return b64e(
-            b"%b%b%b"
-            % (
-                self.__salt,
-                self.__iterations.to_bytes(4, "big"),
-                b64d(Fernet(key).encrypt(message)),
-            )
-        )
-
-    def _decrypt(self, key: str, message: str) -> str:
-        message = b64d(message)
-        salt, iterations, message = message[:16], message[16:20], b64e(message[20:])
-        iterations = int.from_bytes(iterations, "big")
-        key = self.derive(key.encode(), salt, iterations)
-        return Fernet(key).decrypt(message)
 
     # Public Methods
 
