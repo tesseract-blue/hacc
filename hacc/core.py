@@ -107,11 +107,11 @@ class Crypt:
         self.__assert(loaded=False, locked=False)
         self.__set(loaded=True, locked=False)
 
-    def lock(self, key: str, iterations: int = 100) -> bool:
+    def lock(self, key: str) -> bool:
         self.__assert(loaded=True, locked=False)
         self.__set(loaded=True, locked=True)
 
-    def unlock(self, key: str, iterations: int = 100) -> bool:
+    def unlock(self, key: str) -> bool:
         self.__assert(loaded=True, locked=True)
         if not self._verify(key, self.__key):
             return None
