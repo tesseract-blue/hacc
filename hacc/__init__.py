@@ -1,1 +1,1 @@
-from hacc.core import Crypt
+from hacc.core import Crypt, Fernetool
