@@ -45,12 +45,16 @@ class Fernetool:
 
 
 class Crypt:
-    def __init__(self, level: int = 1, access: bool = False) -> None:
-        self.reset(level=level, access=access)
+    def __init__(
+        self, key: str = None, secret: str = None, level: int = 16, access: bool = False
+    ) -> None:
+        self.reset(key=key, secret=secret, level=level, access=access)
 
     # Initialization Reset Method
 
-    def reset(self, level: int = 1, access: bool = False):
+    def reset(
+        self, key: str = None, secret: str = None, level: int = 16, access: bool = False
+    ):
         self.__iterations: int = 2**level
         self.__access = access
         self.__key: Optional[str] = None
@@ -58,6 +62,10 @@ class Crypt:
         self.__locked: bool = False
         self.__loaded: bool = False
         self.__fernet = Fernetool(self.__iterations)
+        if secret is not None:
+            self.store(secret)
+        if key is not None:
+            self.lock(key)
 
     # Private Methods
 
@@ -94,16 +102,22 @@ class Crypt:
 
     # Public Methods
 
-    def store(self, secret: str) -> bool:
+    def store(self, secret: Optional[str]) -> bool:
         self.__assert(loaded=False, locked=False)
-        self.__secret = secret
+        if secret is None:
+            assert self.__secret is not None
+        else:
+            self.__secret = secret
         self.__set(loaded=True, locked=False)
         return True
 
-    def lock(self, key: str) -> bool:
+    def lock(self, key: Optional[str] = None) -> bool:
         self.__assert(loaded=True, locked=False)
-        self.__verify(key=key)
-        self.__key = key
+        if key is None:
+            assert self.__key is not None
+        else:
+            self.__verify(key=key)
+            self.__key = key
         self.__secret = self.__fernet.encrypt(key=self.__key, secret=self.__secret)
         self.__set(locked=True)
         return True
@@ -129,8 +143,6 @@ class Crypt:
     @property
     def secret(self) -> str:
         self.__assert(loaded=True)
-        if not self.__access:
-            self.__assert(locked=False)
         return self.__secret
 
     @property
